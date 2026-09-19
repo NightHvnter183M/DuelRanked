@@ -1,0 +1,10 @@
+{
+  "name": "RankedDuel",
+  "displayName": "RankedLobby,
+  "author": "NightHvnter183M",
+  "main": "main.Main",
+  "description": "base plugin for Foundation ranked server",
+  "version": 0.1-SNAPSHOT,
+  "minGameVersion": "145.2",
+  "dependencies": []
+}
