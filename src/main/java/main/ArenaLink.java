@@ -3,6 +3,7 @@ package main;
 import arc.Core;
 import arc.Events;
 import arc.files.Fi;
+import arc.util.Http;
 import arc.util.Log;
 import arc.util.serialization.Jval;
 import com.sun.net.httpserver.HttpExchange;
@@ -17,7 +18,6 @@ import mindustry.gen.Groups;
 import mindustry.gen.Player;
 import mindustry.maps.Map;
 import mindustry.net.WorldReloader;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,11 +40,8 @@ public class ArenaLink {
     private final String lobbyPublicHost;
     private final int lobbyPublicPort;
     private final int apiPort;
-
     private HttpServer http;
-
     private volatile Session session;
-
     private volatile boolean rotating;
 
     public ArenaLink(String token, String lobbyHost, int lobbyWebPort, String lobbyPublicHost,
@@ -56,6 +53,8 @@ public class ArenaLink {
         this.lobbyPublicPort = lobbyPublicPort;
         this.apiPort = apiPort;
     }
+
+
 
     public static ArenaLink load() {
         Fi file = Core.settings.getDataDirectory().child("mods/FoundationRanked-arena.json");
@@ -227,6 +226,39 @@ public class ArenaLink {
             Log.err("[Arena] maps failed: ", e);
             reply(ex, 500, "error");
         }
+    }
+
+    public void reportResult(Team winner) {
+        Session s = session;
+        if (s == null) return;
+        int myPort = Core.settings.getInt("port", 6567);
+        boolean realWinner = false;
+        for (Session.Slot slot : s.players) if (slot.team == winner.id) { realWinner = true; break; }
+        if (!realWinner) return;
+
+        Jval root = Jval.newObject();
+        root.add("winners", toJson(s, winner.id, true));
+        root.add("losers", toJson(s, winner.id, false));
+        root.add("port", Jval.valueOf(myPort));
+
+        Http.post("http://" + lobbyHost + ":" + lobbyWebPort + "/matchResult", root.toString())
+                .header("Content-Type", "application/json")
+                .header("X-Token", token)
+                .timeout(5000)
+                .error(err -> Log.err("[Arena] match result report failed: ", err))
+                .submit(res -> {});
+    }
+
+    private static Jval toJson(Session s, int winnerTeamId, boolean wantWinners) {
+        Jval arr = Jval.newArray();
+        for (Session.Slot slot : s.players) {
+            if ((slot.team == winnerTeamId) != wantWinners) continue;
+            Jval o = Jval.newObject();
+            o.add("uuid", Jval.valueOf(slot.uuid));
+            o.add("name", Jval.valueOf(slot.name));
+            arr.asArray().add(o);
+        }
+        return arr;
     }
 
     private boolean waitForRotation() {

@@ -53,6 +53,7 @@ public class Main extends Plugin {
 
         Events.on(EventType.GameOverEvent.class, event -> {
             ///First the lobby learns that the match is over (so it doesn't send anyone back), then everybody goes there
+            arena.reportResult(event.winner);
             arena.finish(true);
             arena.sendAllToLobby();
             Log.info("AutoRestart");
